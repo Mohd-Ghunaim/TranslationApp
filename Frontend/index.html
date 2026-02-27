@@ -13,7 +13,46 @@
       <br/>
       <button id="translate">Translate</button>
       <br/>
+      <select id="direction">
+        <option value="ar-en">Arabic → English</option>
+        <option value="en-ar">English → Arabic</option>
+      </select>
+      <br/>
       <textarea name="output" id="output" cols="30" rows="10"></textarea>
     </div>
+    <script>
+      const button = document.getElementById("translate");
+
+      button.addEventListener("click", async () => {
+        const inputText = document.getElementById("input").value;
+        const direction = document.getElementById("direction").value;
+
+        let source, target;
+
+        if (direction === "ar-en") {
+          source = "ar";
+          target = "en";
+        } else {
+          source = "en";
+          target = "ar";
+        }
+
+        const response = await fetch("http://127.0.0.1:5000/translate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            text: inputText,
+            source: source,
+            target: target
+          })
+        });
+
+        const data = await response.json();
+
+        document.getElementById("output").value = data.translated_text;
+      });
+    </script>
   </body>
 </html>
