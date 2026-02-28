@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from googletrans import Translator
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,6 +24,19 @@ def create_users_table():
   conn.close()
 
 create_users_table()
+
+@app.route("/")
+def home():
+  return render_template("login.html")
+
+@app.route("/signup-page")
+def signup_page():
+  return render_template("signup.html")
+
+
+@app.route("/translator")
+def translator_page():
+  return render_template("index.html")
 
 @app.route("/translate", methods=['POST'])
 def translate():
@@ -81,7 +94,7 @@ def login():
   conn.close()
 
   if user and check_password_hash(user[0], password):
-    return jsonify({"message": "Login successful"})
+    return jsonify({"redirect": "/translator"})
   else:
     return jsonify({"error": "Invalid username or password"}), 401
 
