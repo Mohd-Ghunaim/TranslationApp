@@ -1,11 +1,17 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 from googletrans import Translator
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 
 def create_users_table():
   conn = sqlite3.connect("users.db")
@@ -16,7 +22,8 @@ def create_users_table():
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       email TEXT,
-      password TEXT NOT NULL
+      password TEXT NOT NULL,
+      is_admin INTEGER DEFAULT 0
     )
   """)
 
@@ -88,16 +95,29 @@ def login():
   conn = sqlite3.connect("users.db")
   cursor = conn.cursor()
 
-  cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+  cursor.execute(
+    "SELECT id, password, is_admin FROM users WHERE username = ?",
+    (username,)
+  )
   user = cursor.fetchone()
-
   conn.close()
 
-  if user and check_password_hash(user[0], password):
+  if user and check_password_hash(user[1], password):
+    session["user_id"] = user[0]
+    session["is_admin"] = user[2]
     return jsonify({"redirect": "/translator"})
   else:
     return jsonify({"error": "Invalid username or password"}), 401
 
+@app.route("/admin")
+def admin_page():
+  if not session.get("user_id"):
+    return "Unauthorized", 403
+
+  if session.get("is_admin") != 1:
+    return "Forbidden", 403
+
+  return render_template("admin.html")
 
 if __name__ == "__main__":
   app.run(debug=True)
