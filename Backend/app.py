@@ -74,7 +74,7 @@ def signup():
     cursor = conn.cursor()
 
     cursor.execute(
-      "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+      "INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 0)",
       (username, email, hashed_password)
     )
 
@@ -120,7 +120,7 @@ def admin_page():
   if session.get("is_admin") != 1:
     return "Forbidden", 403
 
-  return render_template("admin.html")
+  return render_template("adminindex.html")
 
 if __name__ == "__main__":
   app.run(debug=True)

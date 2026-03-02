@@ -5,15 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Translator</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='adminindex.css') }}">
   </head>
   <body>
     <div id="app">
-      <textarea name="input" id="input" cols="30" rows="10" placeholder="Enter Arabic text to translate"></textarea>
+      <textarea name="input" id="input" cols="30" rows="10"></textarea>
       <br/>
       <button id="translate">Translate</button>
       <br/>
-      <select id="direction" disabled>
+      <select id="direction">
         <option value="ar-en">Arabic → English</option>
         <option value="en-ar">English → Arabic</option>
       </select>
