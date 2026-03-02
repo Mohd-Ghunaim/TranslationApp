@@ -96,10 +96,16 @@ select#direction:focus {
   background: #ffffff;
   border-bottom: 1px transparent #ddd;
   box-sizing: border-box;
-  margin-top: -20px;
+  margin-top: -25px;
+  height : 50px;
+  margin-bottom: 5px;
 }
 
 .users-bar button {
   padding: 6px 12px;
   cursor: pointer;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  transition: 0.2s ease;
 }

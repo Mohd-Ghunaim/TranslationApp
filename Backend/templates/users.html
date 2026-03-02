@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='users.css') }}">
+</head>
+<body>
+
+  <div class="top-bar">
+    <button onclick="window.location.href='/admin'">
+      Back to Translator
+    </button>
+  </div>
+
+  <h2>User Management</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="usersTable"></tbody>
+  </table>
+
+  <script>
+    async function loadUsers() {
+      const response = await fetch("/admin/users-data");
+      const users = await response.json();
+
+      const table = document.getElementById("usersTable");
+      table.innerHTML = "";
+
+      users.forEach(user => {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${user.id}</td>
+          <td>${user.username}</td>
+          <td>${user.is_admin == 1 ? "Admin" : "User"}</td>
+          <td>
+            <button onclick="toggleRole(${user.id}, ${user.is_admin})">
+              ${user.is_admin == 1 ? "Demote" : "Promote"}
+            </button>
+          </td>
+        `;
+
+        table.appendChild(row);
+      });
+    }
+
+    async function toggleRole(id, currentRole) {
+      const newRole = currentRole == 1 ? 0 : 1;
+
+      await fetch("/admin/update-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: id,
+          is_admin: newRole
+        })
+      });
+
+      loadUsers();
+    }
+
+    loadUsers();
+  </script>
+
+</body>
+</html>

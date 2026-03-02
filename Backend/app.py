@@ -132,5 +132,47 @@ def users_page():
 
   return render_template("users.html")
 
+@app.route("/admin/users-data")
+def users_data():
+  if session.get("is_admin") != 1:
+    return "Forbidden", 403
+
+  conn = sqlite3.connect("users.db")
+  cursor = conn.cursor()
+
+  cursor.execute("SELECT id, username, is_admin FROM users")
+  rows = cursor.fetchall()
+  conn.close()
+
+  users = []
+  for row in rows:
+    users.append({
+      "id": row[0],
+      "username": row[1],
+      "is_admin": row[2]
+    })
+
+  return jsonify(users)
+
+@app.route("/admin/update-user", methods=["POST"])
+def update_user():
+  if session.get("is_admin") != 1:
+    return "Forbidden", 403
+
+  data = request.get_json()
+  user_id = data.get("id")
+  new_role = data.get("is_admin")
+
+  conn = sqlite3.connect("users.db")
+  cursor = conn.cursor()
+  cursor.execute(
+    "UPDATE users SET is_admin = ? WHERE id = ?",
+    (new_role, user_id)
+  )
+  conn.commit()
+  conn.close()
+
+  return jsonify({"message": "Updated"})
+
 if __name__ == "__main__":
   app.run(debug=True)
