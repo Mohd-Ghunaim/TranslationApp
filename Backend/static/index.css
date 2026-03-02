@@ -86,3 +86,20 @@ select#direction:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
 }
+
+.logout-button {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+  margin-bottom: 15px;
+  margin-top: -10px;
+}
+
+.logout-button:hover {
+  background-color: #2563eb;
+}
