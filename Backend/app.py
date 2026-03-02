@@ -122,5 +122,15 @@ def admin_page():
 
   return render_template("adminindex.html")
 
+@app.route("/users")
+def users_page():
+  if not session.get("user_id"):
+    return "Unauthorized", 403
+
+  if session.get("is_admin") != 1:
+    return "Forbidden", 403
+
+  return render_template("users.html")
+
 if __name__ == "__main__":
   app.run(debug=True)

@@ -86,3 +86,20 @@ select#direction:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
 }
+
+.users-bar {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 6px 12px;
+  background: #ffffff;
+  border-bottom: 1px transparent #ddd;
+  box-sizing: border-box;
+  margin-top: -20px;
+}
+
+.users-bar button {
+  padding: 6px 12px;
+  cursor: pointer;
+}
