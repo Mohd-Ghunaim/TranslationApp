@@ -13,12 +13,11 @@
     <h2>Login</h2>
 
     <div id="error" class="error"></div>
-
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-
-    <button id="login">Login</button>
-
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Username">
+      <input type="password" id="password" placeholder="Password">
+      <button id="submit">Login</button>
+    </form>
     <div class="link">
       Don't have an account?
       <a href="/signup-page">Sign up</a>
@@ -26,9 +25,11 @@
   </div>
 
   <script>
-    const loginBtn = document.getElementById("login");
+    const form = document.getElementById("loginForm");
 
-    loginBtn.addEventListener("click", async () => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
       const username = document.getElementById("username").value;
       const password = document.getElementById("password").value;
       const errorDiv = document.getElementById("error");
@@ -37,13 +38,8 @@
 
       const response = await fetch("/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username: username,
-          password: password
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
       });
 
       const data = await response.json();

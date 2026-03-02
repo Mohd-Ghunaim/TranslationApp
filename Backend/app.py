@@ -105,7 +105,10 @@ def login():
   if user and check_password_hash(user[1], password):
     session["user_id"] = user[0]
     session["is_admin"] = user[2]
-    return jsonify({"redirect": "/translator"})
+    if user[2] == 1:
+      return jsonify({"redirect": "/admin"})
+    else:
+      return jsonify({"redirect": "/translator"})
   else:
     return jsonify({"error": "Invalid username or password"}), 401
 
