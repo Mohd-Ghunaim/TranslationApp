@@ -27,6 +27,18 @@ def create_users_table():
     )
   """)
 
+  cursor.execute("""
+    CREATE TABLE IF NOT EXISTS translation_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      input_text TEXT,
+      source TEXT,
+      target TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+    """)
+
   conn.commit()
   conn.close()
 
@@ -55,7 +67,20 @@ def translate():
   translator = Translator()
   translated = translator.translate(text, src=source_lang, dest=target_lang)
 
+  user_id = session.get("user_id")
+  log_translation(user_id, text, source_lang, target_lang)
+  
   return {"translated_text": translated.text}
+
+def log_translation(user_id, text, source, target):
+  conn = sqlite3.connect("users.db")
+  cursor = conn.cursor()
+  cursor.execute("""
+    INSERT INTO translation_logs (user_id, input_text, source, target)
+    VALUES (?, ?, ?, ?)
+  """, (user_id, text, source, target))
+  conn.commit()
+  conn.close()
 
 @app.route("/signup", methods=['POST'])
 def signup():
@@ -173,6 +198,34 @@ def update_user():
   conn.close()
 
   return jsonify({"message": "Updated"})
+
+@app.route("/reports")
+def reports():
+  if session.get("role") != "admin":
+    return "Unauthorized", 403
+
+  page = request.args.get("page", 1, type=int)
+  per_page = 10
+  offset = (page - 1) * per_page
+
+  conn = sqlite3.connect("users.db")
+  cursor = conn.cursor()
+
+  cursor.execute("""
+    SELECT users.username, translation_logs.input_text,
+      translation_logs.source, translation_logs.target,
+      translation_logs.timestamp
+    FROM translation_logs
+    JOIN users ON translation_logs.user_id = users.id
+    ORDER BY translation_logs.timestamp DESC
+    LIMIT ? OFFSET ?
+  """, (per_page, offset))
+
+  logs = cursor.fetchall()
+
+  conn.close()
+
+  return render_template("reports.html", logs=logs, page=page)
 
 if __name__ == "__main__":
   app.run(debug=True)
