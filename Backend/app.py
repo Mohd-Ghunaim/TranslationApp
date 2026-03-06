@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, session, Response
 from flask_cors import CORS
 from googletrans import Translator
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 from dotenv import load_dotenv
+import csv
 
 load_dotenv()
 
@@ -226,6 +227,40 @@ def reports():
   conn.close()
 
   return render_template("reports.html", logs=logs, page=page)
+
+@app.route("/download-logs")
+def download_logs():
+  if session.get("is_admin") != 1:
+    return "Unauthorized", 403
+
+  conn = sqlite3.connect("users.db")
+  cursor = conn.cursor()
+
+  cursor.execute("""
+    SELECT users.username,
+      translation_logs.input_text,
+      translation_logs.source,
+      translation_logs.target,
+      translation_logs.timestamp
+    FROM translation_logs
+    JOIN users ON translation_logs.user_id = users.id
+    ORDER BY translation_logs.timestamp DESC
+  """)
+
+  rows = cursor.fetchall()
+  conn.close()
+
+  def generate():
+    yield "\ufeff"
+    yield "username,input_text,source,target,timestamp\n"
+    for row in rows:
+      yield f'"{row[0]}","{row[1]}","{row[2]}","{row[3]}","{row[4]}"\n'
+
+  return Response(
+    generate(),
+    mimetype="text/csv; charset=utf-8",
+    headers={"Content-Disposition": "attachment; filename=translation_logs.csv"}
+  )
 
 if __name__ == "__main__":
   app.run(debug=True)
