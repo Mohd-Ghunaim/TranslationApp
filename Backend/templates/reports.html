@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Translator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='reports.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+  <div class="top-bar">
+    <button onclick="window.location.href='/admin'">Back to Translator</button>
+  </div>
+
+  <h1>Translation Reports</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Input Text</th>
+        <th>Source</th>
+        <th>Target</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log[0] }}</td>
+        <td>{{ log[1] }}</td>
+        <td>{{ log[2] }}</td>
+        <td>{{ log[3] }}</td>
+        <td>{{ log[4] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+
+  </table>
+
+  <div class="pagination">
+    <button onclick="window.location.href='/reports?page={{ page-1 }}'">Previous</button>
+    <button onclick="window.location.href='/reports?page={{ page+1 }}'">Next></button>
+  </div>
+
+</div>
+<body>
