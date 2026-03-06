@@ -201,8 +201,8 @@ def update_user():
 
 @app.route("/reports")
 def reports():
-  if session.get("role") != "admin":
-    return "Unauthorized", 403
+  if session.get("is_admin") != 1:
+    return "forbidden", 403
 
   page = request.args.get("page", 1, type=int)
   per_page = 10
