@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin-dashboard.css') }}">
+</head>
+
+<body>
+
+  <div id="app">
+
+    <div class="top-bar">
+      <button onclick="window.location.href='/'" class="logout-btn">Log Out</button>
+
+      <button onclick="window.location.href='/admin'">
+        Admin Tools
+      </button>
+    </div>
+
+    <div class="dashboard">
+
+      <h2>Statistics</h2>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <h3>Total Translations</h3>
+          <div class="stat-number">{{ total_translations }}</div>
+        </div>
+
+        <div class="stat-box">
+          <h3>Most Used Language</h3>
+          <div class="stat-number">{{ most_used_language[0] }}</div>
+        </div>
+      </div>
+
+      <h2>Top Users</h2>
+      <ul>
+        {% for user in top_users %}
+        <li>{{ user[0] }} — {{ user[1] }} translations</li>
+        {% endfor %}
+      </ul>
+
+      <h2>Translations Per Day</h2>
+      <ul>
+        {% for day in translations_per_day %}
+        <li>{{ day[0] }} — {{ day[1] }}</li>
+        {% endfor %}
+      </ul>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

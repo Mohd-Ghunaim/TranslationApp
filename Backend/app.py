@@ -132,7 +132,7 @@ def login():
     session["user_id"] = user[0]
     session["is_admin"] = user[2]
     if user[2] == 1:
-      return jsonify({"redirect": "/admin"})
+      return jsonify({"redirect": "/admin-dashboard"})
     else:
       return jsonify({"redirect": "/translator"})
   else:
@@ -147,6 +147,55 @@ def admin_page():
     return "Forbidden", 403
 
   return render_template("adminindex.html")
+
+
+@app.route("/admin-dashboard")
+def admin_dashboard():
+  if session.get("is_admin") != 1:
+    return "Unauthorized", 403
+
+  conn = sqlite3.connect("users.db")
+  cursor = conn.cursor()
+
+  cursor.execute("SELECT COUNT(*) FROM translation_logs")
+  total_translations = cursor.fetchone()[0]
+
+  cursor.execute("""
+    SELECT target, COUNT(*) as count
+    FROM translation_logs
+    GROUP BY target
+    ORDER BY count DESC
+    LIMIT 1
+  """)
+  most_used_language = cursor.fetchone()
+
+  cursor.execute("""
+    SELECT DATE(timestamp), COUNT(*)
+    FROM translation_logs
+    GROUP BY DATE(timestamp)
+    ORDER BY DATE(timestamp) DESC
+  """)
+  translations_per_day = cursor.fetchall()
+
+  cursor.execute("""
+    SELECT users.username, COUNT(*) as count
+    FROM translation_logs
+    JOIN users ON translation_logs.user_id = users.id
+    GROUP BY users.username
+    ORDER BY count DESC
+    LIMIT 5
+  """)
+  top_users = cursor.fetchall()
+
+  conn.close()
+
+  return render_template(
+    "admin-dashboard.html",
+    total_translations=total_translations,
+    most_used_language=most_used_language,
+    translations_per_day=translations_per_day,
+    top_users=top_users
+  )
 
 @app.route("/users")
 def users_page():
