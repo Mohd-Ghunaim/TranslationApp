@@ -110,7 +110,7 @@ select#direction:focus {
   transition: 0.2s ease;
 }
 
-.logout-bar {
+.dashboard-bar {
   width: 100%;
   display: flex;
   justify-content: flex-end;
@@ -124,14 +124,14 @@ select#direction:focus {
   /*margin-bottom: 5px;*/
 }
 
-.logout-bar button {
+.dashboard-bar button {
   padding: 6px 12px;
   cursor: pointer;
   width: 100%;
   height: 100%;
   cursor: pointer;
   transition: 0.2s ease;
-  background-color: red;
+  background-color: #2563eb;
 }
 
 .reports-bar {
@@ -147,7 +147,7 @@ select#direction:focus {
   height : 50px;
   margin-bottom: 5px;
 }
-
+/*
 .reports-bar button {
   padding: 6px 12px;
   cursor: pointer;
@@ -155,4 +155,4 @@ select#direction:focus {
   height: 100%;
   cursor: pointer;
   transition: 0.2s ease;
-}
+}*/

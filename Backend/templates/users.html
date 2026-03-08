@@ -9,25 +9,29 @@
 </head>
 <body>
 
-  <div class="top-bar">
-    <button onclick="window.location.href='/admin'">
-      Back to Translator
-    </button>
+  <div class="card">
+
+    <div class="buttons-bar">
+      <button onclick="window.location.href='/admin-dashboard'" class="back-btn">Back to Dashboard</button>
+    </div>
+
+    <div class="card-content">
+      <h2>User Management</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="usersTable"></tbody>
+      </table>
+    </div>
+
   </div>
-
-  <h2>User Management</h2>
-
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Username</th>
-        <th>Role</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="usersTable"></tbody>
-  </table>
 
   <script>
     async function loadUsers() {
@@ -40,13 +44,16 @@
       users.forEach(user => {
         const row = document.createElement("tr");
 
+        const actionBtnClass = user.is_admin == 1 ? "demote-btn" : "promote-btn";
+        const actionBtnText = user.is_admin == 1 ? "Demote" : "Promote";
+
         row.innerHTML = `
           <td>${user.id}</td>
           <td>${user.username}</td>
           <td>${user.is_admin == 1 ? "Admin" : "User"}</td>
           <td>
-            <button onclick="toggleRole(${user.id}, ${user.is_admin})">
-              ${user.is_admin == 1 ? "Demote" : "Promote"}
+            <button class="${actionBtnClass}" onclick="toggleRole(${user.id}, ${user.is_admin})">
+              ${actionBtnText}
             </button>
           </td>
         `;
@@ -63,10 +70,7 @@
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          id: id,
-          is_admin: newRole
-        })
+        body: JSON.stringify({ id: id, is_admin: newRole })
       });
 
       loadUsers();

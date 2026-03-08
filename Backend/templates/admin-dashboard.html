@@ -5,26 +5,22 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Dashboard</title>
-
   <link rel="stylesheet" href="{{ url_for('static', filename='admin-dashboard.css') }}">
 </head>
-
 <body>
 
-  <div id="app">
+  <div class="dashboard-card">
 
-    <div class="top-bar">
+    <div class="buttons-bar">
       <button onclick="window.location.href='/'" class="logout-btn">Log Out</button>
-
-      <button onclick="window.location.href='/admin'">
-        Admin Tools
-      </button>
+      <button onclick="window.location.href='/admin'" class="translator-btn">Translator</button>
+      <button onclick="window.location.href='/users'" class="users-btn">Manage Users</button>
+      <button onclick="window.location.href='/reports'" class="reports-btn">Reports</button>
     </div>
 
-    <div class="dashboard">
+    <div class="dashboard-content">
 
       <h2>Statistics</h2>
-
       <div class="stats-grid">
         <div class="stat-box">
           <h3>Total Translations</h3>
@@ -52,7 +48,6 @@
       </ul>
 
     </div>
-
   </div>
 
 </body>
