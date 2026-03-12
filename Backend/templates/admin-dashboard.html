@@ -49,6 +49,17 @@
 
     </div>
   </div>
+  <script>
+    const logoutButton = document.querySelector(".logout-btn");
 
+    logoutButton.addEventListener("click", async() => {
+      
+      await fetch("/logout", {
+          method: "POST"
+        });
+
+      window.location.href = "/";
+    });
+  </script>
 </body>
 </html>

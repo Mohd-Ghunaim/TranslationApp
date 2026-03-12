@@ -149,6 +149,12 @@ def login():
   else:
     error_logger.error(f"Failed login attempt for user {username}")
     return jsonify({"error": "Invalid username or password"}), 401
+  
+@app.route("/logout", methods=['POST'])
+def logout():
+  login_logger.info(f"User {session.get('username')} logged out") 
+  session.clear()
+  return jsonify({"message": "Logout successful"})
 
 @app.route("/admin")
 def admin_page():

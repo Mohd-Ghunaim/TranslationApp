@@ -9,7 +9,7 @@
   </head>
   <body>
     <div id="app">
-      <button onclick="window.location.href='/'" class="logout-button">Log Out</button>
+      <button class="logout-button">Log Out</button>
       <textarea name="input" id="input" cols="30" rows="10" placeholder="Enter Arabic text to translate"></textarea>
       <br/>
       <button id="translate" class="translate-button">Translate</button>
@@ -53,6 +53,17 @@
         const data = await response.json();
 
         document.getElementById("output").value = data.translated_text;
+      });
+
+      const logoutButton = document.querySelector('.logout-button');
+
+      logoutButton.addEventListener('click', async () => {
+
+        await fetch("/logout", {
+          method: "POST"
+        });
+
+        window.location.href = "/";
       });
     </script>
   </body>
