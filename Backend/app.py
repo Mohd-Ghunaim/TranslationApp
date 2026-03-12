@@ -6,6 +6,7 @@ import sqlite3
 import os
 from dotenv import load_dotenv
 import csv
+from logger import login_logger, translation_logger, error_logger
 
 load_dotenv()
 
@@ -68,8 +69,11 @@ def translate():
   translator = Translator()
   translated = translator.translate(text, src=source_lang, dest=target_lang)
 
+  username = session.get("username")
   user_id = session.get("user_id")
+
   log_translation(user_id, text, source_lang, target_lang)
+  translation_logger.info(f"User {username} translated text from {source_lang} to {target_lang}")
   
   return {"translated_text": translated.text}
 
@@ -110,6 +114,7 @@ def signup():
     return jsonify({"message": "Signup successful"})
 
   except sqlite3.IntegrityError:
+    error_logger.error(f"User {username} already exists")
     return jsonify({"error": "Username already exists"}), 400
 
 @app.route("/login", methods=['POST'])
@@ -129,13 +134,20 @@ def login():
   conn.close()
 
   if user and check_password_hash(user[1], password):
+
+    login_logger.info(f"User {username} logged in")
+
     session["user_id"] = user[0]
+    session["username"] = username
     session["is_admin"] = user[2]
+
     if user[2] == 1:
       return jsonify({"redirect": "/admin-dashboard"})
     else:
       return jsonify({"redirect": "/translator"})
+    
   else:
+    error_logger.error(f"Failed login attempt for user {username}")
     return jsonify({"error": "Invalid username or password"}), 401
 
 @app.route("/admin")
