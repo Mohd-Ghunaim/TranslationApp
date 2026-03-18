@@ -7,6 +7,8 @@ import os
 from dotenv import load_dotenv
 import csv
 from logger import login_logger, translation_logger, error_logger
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 load_dotenv()
 
@@ -14,6 +16,8 @@ app = Flask(__name__)
 CORS(app)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+
+limiter = Limiter(app=app, key_func=get_remote_address)
 
 def create_users_table():
   conn = sqlite3.connect("users.db")
@@ -66,11 +70,15 @@ def translate():
   source_lang = data.get("source")
   target_lang = data.get("target")
 
-  translator = Translator()
-  translated = translator.translate(text, src=source_lang, dest=target_lang)
-
   username = session.get("username")
   user_id = session.get("user_id")
+
+  if user_id is None:     
+    error_logger.error("User not logged in")
+    return jsonify({"error": "User not logged in"}), 401 
+
+  translator = Translator()
+  translated = translator.translate(text, src=source_lang, dest=target_lang)
 
   log_translation(user_id, text, source_lang, target_lang)
   translation_logger.info(f"User {username} translated text from {source_lang} to {target_lang}")
@@ -118,6 +126,7 @@ def signup():
     return jsonify({"error": "Username already exists"}), 400
 
 @app.route("/login", methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
   data = request.get_json()
   username = data.get("username")
