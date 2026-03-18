@@ -9,6 +9,7 @@ import csv
 from logger import login_logger, translation_logger, error_logger
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from bleach import clean
 
 load_dotenv()
 
@@ -64,11 +65,20 @@ def translator_page():
   return render_template("index.html")
 
 @app.route("/translate", methods=['POST'])
+@limiter.limit("30 per minute")
 def translate():
   data = request.get_json()
-  text = data.get("text")
+  
+  raw_text = data.get("text")
   source_lang = data.get("source")
   target_lang = data.get("target")
+  
+  text = clean(raw_text)
+  source_lang = clean(source_lang)
+  target_lang = clean(target_lang)
+
+  if not text or len(text) > 5000:
+    return jsonify({"error": "Invalid input"}), 400
 
   username = session.get("username")
   user_id = session.get("user_id")
