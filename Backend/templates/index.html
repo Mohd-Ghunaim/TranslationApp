@@ -23,48 +23,37 @@
     </div>
     <script>
       const button = document.getElementById("translate");
-
       button.addEventListener("click", async () => {
         const inputText = document.getElementById("input").value;
         const direction = document.getElementById("direction").value;
 
-        let source, target;
+        let source = direction === "ar-en" ? "ar" : "en";
+        let target = direction === "ar-en" ? "en" : "ar";
 
-        if (direction === "ar-en") {
-          source = "ar";
-          target = "en";
-        } else {
-          source = "en";
-          target = "ar";
-        }
+        const token = localStorage.getItem("token");
+        if (!token) return alert("Not logged in");
 
-        const response = await fetch("http://127.0.0.1:5000/translate", {
+        const response = await fetch("/translate", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
           },
-          body: JSON.stringify({
-            text: inputText,
-            source: source,
-            target: target
-          })
+          body: JSON.stringify({ text: inputText, source, target })
         });
-
         const data = await response.json();
-
-        document.getElementById("output").value = data.translated_text;
+        if (data.translated_text) {
+          document.getElementById("output").value = data.translated_text;
+        } else {
+          alert(data.error);
+        }
       });
 
-      const logoutButton = document.querySelector('.logout-button');
-
-      logoutButton.addEventListener('click', async () => {
-
-        await fetch("/logout", {
-          method: "POST"
-        });
-
+      const logoutButton = document.querySelector(".logout-button");
+      logoutButton.addEventListener("click", async () => {
+        localStorage.removeItem("jwt");
         window.location.href = "/";
       });
-    </script>
+      </script>
   </body>
 </html>

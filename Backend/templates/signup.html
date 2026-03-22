@@ -27,44 +27,32 @@
 </div>
 
 <script>
-  const signupBtn = document.getElementById("signup");
+const signupBtn = document.getElementById("signup");
+signupBtn.addEventListener("click", async () => {
+  const username = document.getElementById("username").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const messageDiv = document.getElementById("message");
 
-  signupBtn.addEventListener("click", async () => {
-    const username = document.getElementById("username").value;
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    const messageDiv = document.getElementById("message");
+  messageDiv.textContent = "";
+  messageDiv.className = "";
 
-    messageDiv.textContent = "";
-    messageDiv.className = "";
-
-    const response = await fetch("/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        username: username,
-        email: email,
-        password: password
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.message) {
-      messageDiv.textContent = data.message;
-      messageDiv.className = "success";
-
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1500);
-
-    } else {
-      messageDiv.textContent = data.error;
-      messageDiv.className = "error";
-    }
+  const response = await fetch("/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, email, password })
   });
+  const data = await response.json();
+
+  if (data.message) {
+    messageDiv.textContent = data.message;
+    messageDiv.className = "success";
+    setTimeout(() => { window.location.href = "/"; }, 1500);
+  } else {
+    messageDiv.textContent = data.error;
+    messageDiv.className = "error";
+  }
+});
 </script>
 
 </body>

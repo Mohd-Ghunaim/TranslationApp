@@ -12,7 +12,7 @@
   <div class="card">
 
     <div class="buttons-bar">
-      <button onclick="window.location.href='/admin-dashboard'" class="back-btn">Back to Dashboard</button>
+      <button id="backBtn" class="back-btn">Back to Dashboard</button>
     </div>
 
     <div class="card-content">
@@ -34,8 +34,20 @@
   </div>
 
   <script>
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      window.location.href = "/";
+    }
+
+    // LOAD USERS
     async function loadUsers() {
-      const response = await fetch("/admin/users-data");
+      const response = await fetch("/admin/users-data", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
       const users = await response.json();
 
       const table = document.getElementById("usersTable");
@@ -62,21 +74,42 @@
       });
     }
 
+    // UPDATE ROLE
     async function toggleRole(id, currentRole) {
       const newRole = currentRole == 1 ? 0 : 1;
 
       await fetch("/admin/update-user", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ id: id, is_admin: newRole })
       });
 
       loadUsers();
     }
+    // BACK BUTTON LOGIC
+    document.getElementById("backBtn").addEventListener("click", async () => {
+      try {
+        const response = await fetch("/users/check-role", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (data.is_admin == 1) {
+          window.location.href = "/admin-dashboard";
+        } else {
+          window.location.href = "/translator";
+        }
+      } catch (err) {
+        console.error("Error checking role:", err);
+        window.location.href = "/translator"; // fallback
+      }
+    });
 
     loadUsers();
+
   </script>
 
 </body>

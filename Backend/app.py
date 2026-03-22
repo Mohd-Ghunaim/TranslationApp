@@ -1,29 +1,36 @@
-from flask import Flask, request, jsonify, render_template, session, Response
+from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
 from googletrans import Translator
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 from dotenv import load_dotenv
-import csv
 from logger import login_logger, translation_logger, error_logger
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from bleach import clean
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
+import traceback
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+# ---------------- Config ----------------
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or "dev_secret_key"
+JWT_SECRET = app.config["SECRET_KEY"]
+JWT_ALGORITHM = "HS256"
+JWT_EXP_MINUTES = 60
 
 limiter = Limiter(app=app, key_func=get_remote_address)
 
+# ---------------- Database Setup ----------------
 def create_users_table():
   conn = sqlite3.connect("users.db")
   cursor = conn.cursor()
-
   cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +40,6 @@ def create_users_table():
       is_admin INTEGER DEFAULT 0
     )
   """)
-
   cursor.execute("""
     CREATE TABLE IF NOT EXISTS translation_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,13 +50,69 @@ def create_users_table():
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id)
     )
-    """)
-
+  """)
   conn.commit()
   conn.close()
 
 create_users_table()
 
+# ---------------- JWT Helpers ----------------
+def token_required(f):
+  @wraps(f)
+  def decorated(*args, **kwargs):
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+      token = auth_header.split(" ")[1]
+
+    if not token:
+      return jsonify({"error": "Token missing"}), 401
+
+    try:
+      data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+      request.user = {
+        "user_id": data["user_id"],
+        "username": data["username"],
+        "is_admin": data["is_admin"]
+      }
+    except jwt.ExpiredSignatureError:
+      return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+      return jsonify({"error": "Invalid token"}), 401
+    except Exception as e:
+      print("JWT decode error:", e)
+      return jsonify({"error": "Token decode error"}), 401
+
+    return f(*args, **kwargs)
+  return decorated
+
+def admin_required(f):
+  @wraps(f)
+  @token_required
+  def decorated(*args, **kwargs):
+    if request.user["is_admin"] != 1:
+      return jsonify({"error": "Admin required"}), 403
+    return f(*args, **kwargs)
+  return decorated
+
+def generate_token(user):
+  try:
+    print("Generating token for user:", user)
+    payload = {
+      "user_id": user[0],
+      "username": user[1],
+      "is_admin": user[2],
+      "exp": datetime.utcnow() + timedelta(minutes=JWT_EXP_MINUTES)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    if isinstance(token, bytes):
+      token = token.decode("utf-8")
+    return token
+  except Exception as e:
+    print("Error generating token:", e)
+    return None
+
+# ---------------- Routes ----------------
 @app.route("/")
 def home():
   return render_template("login.html")
@@ -59,41 +121,105 @@ def home():
 def signup_page():
   return render_template("signup.html")
 
-
 @app.route("/translator")
 def translator_page():
   return render_template("index.html")
 
-@app.route("/translate", methods=['POST'])
+@app.route("/users")
+def users_page():
+  return render_template("users.html")
+
+@app.route("/reports-page")
+def reports_page():
+  return render_template("reportspage.html")
+
+@app.route("/admin")
+def admin_page():
+  return render_template("adminindex.html")
+
+# ---------------- Auth ----------------
+@app.route("/signup", methods=["POST"])
+def signup():
+  try:
+    data = request.get_json()
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not username or not password:
+      return jsonify({"error": "Username and password required"}), 400
+
+    hashed_password = generate_password_hash(password)
+
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute(
+      "INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 0)",
+      (username, email, hashed_password)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Signup successful"})
+  except Exception:
+    print("Signup error:\n", traceback.format_exc())
+    return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
+def login():
+  try:
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+      return jsonify({"error": "Username and password required"}), 400
+
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, password, is_admin FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user and check_password_hash(user[2], password):  # user[2] is password
+      # generate token using correct indices: id, username, is_admin
+      token = generate_token((user[0], user[1], user[3]))
+      if not token:
+        return jsonify({"error": "Token generation failed"}), 500
+      login_logger.info(f"User {username} logged in")
+      return jsonify({"token": token, "is_admin": user[3]})
+    else:
+      return jsonify({"error": "Invalid username or password"}), 401
+  except Exception:
+    print("Login error:\n", traceback.format_exc())
+    return jsonify({"error": "Internal server error"}), 500
+
+# ---------------- Translator ----------------
+@app.route("/translate", methods=["POST"])
 @limiter.limit("30 per minute")
+@token_required
 def translate():
-  data = request.get_json()
-  
-  raw_text = data.get("text")
-  source_lang = data.get("source")
-  target_lang = data.get("target")
-  
-  text = clean(raw_text)
-  source_lang = clean(source_lang)
-  target_lang = clean(target_lang)
+  try:
+    data = request.get_json()
+    raw_text = data.get("text")
+    source_lang = data.get("source")
+    target_lang = data.get("target")
 
-  if not text or len(text) > 5000:
-    return jsonify({"error": "Invalid input"}), 400
+    text = clean(raw_text)
+    source_lang = clean(source_lang)
+    target_lang = clean(target_lang)
 
-  username = session.get("username")
-  user_id = session.get("user_id")
+    if not text or len(text) > 5000:
+      return jsonify({"error": "Invalid input"}), 400
 
-  if user_id is None:     
-    error_logger.error("User not logged in")
-    return jsonify({"error": "User not logged in"}), 401 
-
-  translator = Translator()
-  translated = translator.translate(text, src=source_lang, dest=target_lang)
-
-  log_translation(user_id, text, source_lang, target_lang)
-  translation_logger.info(f"User {username} translated text from {source_lang} to {target_lang}")
-  
-  return {"translated_text": translated.text}
+    translator = Translator()
+    translated = translator.translate(text, src=source_lang, dest=target_lang)
+    log_translation(request.user["user_id"], text, source_lang, target_lang)
+    translation_logger.info(f"User {request.user['username']} translated from {source_lang} to {target_lang}")
+    return {"translated_text": translated.text}
+  except Exception:
+    print("Translate error:\n", traceback.format_exc())
+    return jsonify({"error": "Internal server error"}), 500
 
 def log_translation(user_id, text, source, target):
   conn = sqlite3.connect("users.db")
@@ -105,92 +231,41 @@ def log_translation(user_id, text, source, target):
   conn.commit()
   conn.close()
 
-@app.route("/signup", methods=['POST'])
-def signup():
-  data = request.get_json()
-  username = data.get("username")
-  email = data.get("email")
-  password = data.get("password")
-
-  if not username or not password:
-    return jsonify({"error": "Username and password required"}), 400
-
-  hashed_password = generate_password_hash(password)
-
+# ---------------- Admin Routes ----------------
+@app.route("/admin/users-data")
+@admin_required
+def users_data():
   try:
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
+    cursor.execute("SELECT id, username, is_admin FROM users")
+    rows = cursor.fetchall()
+    conn.close()
+    users = [{"id": r[0], "username": r[1], "is_admin": r[2]} for r in rows]
+    return jsonify(users)
+  except Exception:
+    print("Users data error:\n", traceback.format_exc())
+    return jsonify({"error": "Internal server error"}), 500
 
-    cursor.execute(
-      "INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 0)",
-      (username, email, hashed_password)
-    )
-
+@app.route("/admin/update-user", methods=["POST"])
+@admin_required
+def update_user():
+  try:
+    data = request.get_json()
+    user_id = data.get("id")
+    new_role = data.get("is_admin")
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET is_admin = ? WHERE id = ?", (new_role, user_id))
     conn.commit()
     conn.close()
-
-    return jsonify({"message": "Signup successful"})
-
-  except sqlite3.IntegrityError:
-    error_logger.error(f"User {username} already exists")
-    return jsonify({"error": "Username already exists"}), 400
-
-@app.route("/login", methods=['POST'])
-@limiter.limit("10 per minute")
-def login():
-  data = request.get_json()
-  username = data.get("username")
-  password = data.get("password")
-
-  conn = sqlite3.connect("users.db")
-  cursor = conn.cursor()
-
-  cursor.execute(
-    "SELECT id, password, is_admin FROM users WHERE username = ?",
-    (username,)
-  )
-  user = cursor.fetchone()
-  conn.close()
-
-  if user and check_password_hash(user[1], password):
-
-    login_logger.info(f"User {username} logged in")
-
-    session["user_id"] = user[0]
-    session["username"] = username
-    session["is_admin"] = user[2]
-
-    if user[2] == 1:
-      return jsonify({"redirect": "/admin-dashboard"})
-    else:
-      return jsonify({"redirect": "/translator"})
-    
-  else:
-    error_logger.error(f"Failed login attempt for user {username}")
-    return jsonify({"error": "Invalid username or password"}), 401
+    return jsonify({"message": "Updated"})
+  except Exception:
+    print("Update user error:\n", traceback.format_exc())
+    return jsonify({"error": "Internal server error"}), 500
   
-@app.route("/logout", methods=['POST'])
-def logout():
-  login_logger.info(f"User {session.get('username')} logged out") 
-  session.clear()
-  return jsonify({"message": "Logout successful"})
-
-@app.route("/admin")
-def admin_page():
-  if not session.get("user_id"):
-    return "Unauthorized", 403
-
-  if session.get("is_admin") != 1:
-    return "Forbidden", 403
-
-  return render_template("adminindex.html")
-
-
 @app.route("/admin-dashboard")
 def admin_dashboard():
-  if session.get("is_admin") != 1:
-    return "Unauthorized", 403
-
   conn = sqlite3.connect("users.db")
   cursor = conn.cursor()
 
@@ -234,62 +309,30 @@ def admin_dashboard():
     top_users=top_users
   )
 
-@app.route("/users")
-def users_page():
-  if not session.get("user_id"):
-    return "Unauthorized", 403
-
-  if session.get("is_admin") != 1:
-    return "Forbidden", 403
-
-  return render_template("users.html")
-
-@app.route("/admin/users-data")
-def users_data():
-  if session.get("is_admin") != 1:
-    return "Forbidden", 403
-
+@app.route("/admin/reports-data")
+@admin_required
+def reports_data():
   conn = sqlite3.connect("users.db")
   cursor = conn.cursor()
 
-  cursor.execute("SELECT id, username, is_admin FROM users")
-  rows = cursor.fetchall()
+  cursor.execute("""
+      SELECT users.username, input_text, source, target, timestamp
+      FROM translation_logs
+      JOIN users ON translation_logs.user_id = users.id
+      ORDER BY timestamp DESC
+  """)
+
+  logs = cursor.fetchall()
   conn.close()
 
-  users = []
-  for row in rows:
-    users.append({
-      "id": row[0],
-      "username": row[1],
-      "is_admin": row[2]
-    })
-
-  return jsonify(users)
-
-@app.route("/admin/update-user", methods=["POST"])
-def update_user():
-  if session.get("is_admin") != 1:
-    return "Forbidden", 403
-
-  data = request.get_json()
-  user_id = data.get("id")
-  new_role = data.get("is_admin")
-
-  conn = sqlite3.connect("users.db")
-  cursor = conn.cursor()
-  cursor.execute(
-    "UPDATE users SET is_admin = ? WHERE id = ?",
-    (new_role, user_id)
-  )
-  conn.commit()
-  conn.close()
-
-  return jsonify({"message": "Updated"})
+  return jsonify(logs)
 
 @app.route("/reports")
+@admin_required
 def reports():
-  if session.get("is_admin") != 1:
-    return "forbidden", 403
+  # only admin can access
+  if request.user["is_admin"] != 1:
+    return jsonify({"error": "Forbidden"}), 403
 
   page = request.args.get("page", 1, type=int)
   per_page = 10
@@ -297,56 +340,74 @@ def reports():
 
   conn = sqlite3.connect("users.db")
   cursor = conn.cursor()
-
   cursor.execute("""
     SELECT users.username, translation_logs.input_text,
-      translation_logs.source, translation_logs.target,
-      translation_logs.timestamp
+            translation_logs.source, translation_logs.target,
+            translation_logs.timestamp
     FROM translation_logs
     JOIN users ON translation_logs.user_id = users.id
     ORDER BY translation_logs.timestamp DESC
     LIMIT ? OFFSET ?
   """, (per_page, offset))
-
   logs = cursor.fetchall()
-
   conn.close()
 
-  return render_template("reports.html", logs=logs, page=page)
+  return jsonify({
+    "logs": logs,
+    "page": page
+  })
 
 @app.route("/download-logs")
+@admin_required
 def download_logs():
-  if session.get("is_admin") != 1:
-    return "Unauthorized", 403
+  try:
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
 
-  conn = sqlite3.connect("users.db")
-  cursor = conn.cursor()
+    cursor.execute("""
+      SELECT users.username,
+             translation_logs.input_text,
+             translation_logs.source,
+             translation_logs.target,
+             translation_logs.timestamp
+      FROM translation_logs
+      JOIN users ON translation_logs.user_id = users.id
+      ORDER BY translation_logs.timestamp DESC
+    """)
 
-  cursor.execute("""
-    SELECT users.username,
-      translation_logs.input_text,
-      translation_logs.source,
-      translation_logs.target,
-      translation_logs.timestamp
-    FROM translation_logs
-    JOIN users ON translation_logs.user_id = users.id
-    ORDER BY translation_logs.timestamp DESC
-  """)
+    rows = cursor.fetchall()
+    conn.close()
 
-  rows = cursor.fetchall()
-  conn.close()
+    def generate():
+      yield "\ufeff"  # UTF-8 BOM for Excel
+      yield "username,input_text,source,target,timestamp\n"
 
-  def generate():
-    yield "\ufeff"
-    yield "username,input_text,source,target,timestamp\n"
-    for row in rows:
-      yield f'"{row[0]}","{row[1]}","{row[2]}","{row[3]}","{row[4]}"\n'
+      for row in rows:
+        yield f'"{row[0]}","{row[1]}","{row[2]}","{row[3]}","{row[4]}"\n'
 
-  return Response(
-    generate(),
-    mimetype="text/csv; charset=utf-8",
-    headers={"Content-Disposition": "attachment; filename=translation_logs.csv"}
-  )
+    return Response(
+      generate(),
+      mimetype="text/csv; charset=utf-8",
+      headers={
+        "Content-Disposition": "attachment; filename=translation_logs.csv"
+      }
+    )
 
+  except Exception as e:
+    print("Download logs error:", e)
+    return jsonify({"error": "Internal server error"}), 500
+  
+@app.route("/users/check-role")
+@token_required
+def check_role():
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_admin FROM users WHERE id = ?", (request.user["user_id"],))
+    row = cursor.fetchone()
+    conn.close()
+    is_admin = row[0] if row else 0
+    return jsonify({"is_admin": is_admin})
+
+# ---------------- Run App ----------------
 if __name__ == "__main__":
   app.run(debug=True)

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Translation Reports</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='reports.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+  <div class="top-bar">
+    <button onclick="window.location.href='/admin-dashboard'">Back To Dashboard</button>
+    <button id="downloadCSVBtn">Download CSV</button>
+  </div>
+
+  <h1>Translation Reports</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Input Text</th>
+        <th>Source</th>
+        <th>Target</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="reports-body">
+      <!-- Filled by JS -->
+    </tbody>
+  </table>
+
+  <div class="pagination">
+    <button id="prevBtn">Previous</button>
+    <button id="nextBtn">Next</button>
+  </div>
+
+</div>
+
+<script>
+const token = localStorage.getItem("token");
+let currentPage = 1;
+
+async function loadReports(page=1){
+    currentPage = page;
+    const res = await fetch(`/reports?page=${page}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    if(!res.ok){
+        alert("Failed to load reports or token missing");
+        return;
+    }
+
+    const data = await res.json();
+    const tbody = document.getElementById("reports-body");
+    tbody.innerHTML = "";
+
+    data.logs.forEach(log => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${log[0]}</td>
+            <td>${log[1]}</td>
+            <td>${log[2]}</td>
+            <td>${log[3]}</td>
+            <td>${log[4]}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById("prevBtn").disabled = currentPage <= 1;
+    document.getElementById("nextBtn").disabled = data.logs.length === 0;
+}
+
+document.getElementById("prevBtn").addEventListener("click", () => {
+    if(currentPage > 1) loadReports(currentPage - 1);
+});
+document.getElementById("nextBtn").addEventListener("click", () => {
+    loadReports(currentPage + 1);
+});
+
+document.getElementById("downloadCSVBtn").addEventListener("click", async (e) => {
+    e.preventDefault(); // prevent default behavior
+
+    const token = localStorage.getItem("token");
+    if (!token) { alert("No token found!"); return; }
+
+    const res = await fetch("/download-logs", {
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (!res.ok) {
+        alert("Failed to download CSV");
+        return;
+    }
+
+    // convert response to blob and download
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "translation_logs.csv"; // file name
+    a.click();
+    window.URL.revokeObjectURL(url);
+});
+
+loadReports();
+</script>
+
+</body>
+</html>
